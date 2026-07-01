@@ -21,7 +21,7 @@ function App() {
   const [confirmedOrderId, setConfirmedOrderId] = React.useState<string>('');
   const [isAdminLoggedIn, setIsAdminLoggedIn] = React.useState(false);
   const [adminLoginError, setAdminLoginError] = React.useState<string | null>(null);
-  const [newOrdersCount] = React.useState(0);
+
 
   const handleNavigate = (page: Page) => {
     setCurrentPage(page);
@@ -121,7 +121,6 @@ function App() {
       <Navbar
         currentPage={currentPage}
         onNavigate={handleNavigate}
-        newOrdersCount={currentPage === 'admin' ? 0 : newOrdersCount}
       />
       <main className="flex-1 pt-16">{renderPage()}</main>
       <Footer onNavigate={handleNavigate} />
