@@ -44,6 +44,7 @@ export interface Order {
   status: string;
   items: OrderItem[];
   viewed: boolean;
+  is_archived: boolean;
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;

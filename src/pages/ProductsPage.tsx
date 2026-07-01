@@ -146,9 +146,8 @@ export function ProductsPage({ cartItems, onUpdateCart, onNavigate }: ProductsPa
             return (
               <div
                 key={product.id}
-                className={`glass rounded-2xl overflow-hidden transition-all border border-white/5 ${
-                  isOutOfStock ? 'opacity-60' : 'hover:shadow-lg'
-                }`}
+                className={`glass rounded-2xl overflow-hidden transition-all border border-white/5 ${isOutOfStock ? 'opacity-60' : 'hover:shadow-lg'
+                  }`}
               >
                 <div className="aspect-square bg-dark-900 relative overflow-hidden">
                   {product.image_url ? (
@@ -228,11 +227,10 @@ export function ProductsPage({ cartItems, onUpdateCart, onNavigate }: ProductsPa
             <button
               onClick={handleContinue}
               disabled={getTotalItems() === 0}
-              className={`w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold transition-all ${
-                getTotalItems() > 0
-                  ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white hover:opacity-90 transform hover:scale-[1.02]'
-                  : 'bg-dark-700 text-gray-500 cursor-not-allowed'
-              }`}
+              className={`w-full sm:w-auto flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-semibold transition-all ${getTotalItems() > 0
+                ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white hover:opacity-90 transform hover:scale-[1.02]'
+                : 'bg-dark-700 text-gray-500 cursor-not-allowed'
+                }`}
             >
               <ShoppingBag className="w-5 h-5" />
               Review Order

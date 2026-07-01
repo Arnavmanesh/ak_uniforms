@@ -18,6 +18,7 @@ import {
   Bell,
   Edit3,
   Save,
+  Settings,
   X,
   XCircle,
   RefreshCw,
@@ -43,7 +44,7 @@ export function AdminPage({ onLogout }: AdminPageProps) {
   const [products, setProducts] = React.useState<Product[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [expandedOrder, setExpandedOrder] = React.useState<string | null>(null);
-  const [activeTab, setActiveTab] = React.useState<'orders' | 'products' | 'stats' | 'settings'>('orders');
+  const [activeTab, setActiveTab] = React.useState<'current-orders' | 'order-history' | 'products' | 'stats' | 'settings'>('current-orders');
   const [uploadingId, setUploadingId] = React.useState<string | null>(null);
   const [message, setMessage] = React.useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [editingProduct, setEditingProduct] = React.useState<string | null>(null);
@@ -175,26 +176,17 @@ export function AdminPage({ onLogout }: AdminPageProps) {
   const handleClearAllOrders = async () => {
     setClearingOrders(true);
     try {
-      // First delete all order items
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
-
-      if (itemsError) throw itemsError;
-
-      // Then delete all orders
       const { error: ordersError } = await supabase
         .from('orders')
-        .delete()
-        .neq('id', '00000000-0000-0000-0000-000000000000');
+        .update({ is_archived: true })
+        .eq('is_archived', false);
 
       if (ordersError) throw ordersError;
 
       // Refresh data
       await fetchData();
       setShowClearOrdersConfirm(false);
-      showMessage('success', 'All orders have been cleared successfully');
+      showMessage('success', 'All active orders cleared to history successfully');
     } catch (err) {
       console.error('Error clearing orders:', err);
       showMessage('error', 'Failed to clear orders');
@@ -234,7 +226,7 @@ export function AdminPage({ onLogout }: AdminPageProps) {
       setOrders(ordersWithItems);
       setProducts(productsResp.data || []);
 
-      const unviewed = ordersWithItems.filter((o) => !o.viewed).length;
+      const unviewed = ordersWithItems.filter((o) => !o.viewed && !o.is_archived).length;
       setNewOrdersCount(unviewed);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -249,7 +241,8 @@ export function AdminPage({ onLogout }: AdminPageProps) {
       const { data, error } = await supabase
         .from('orders')
         .select('id')
-        .eq('viewed', false);
+        .eq('viewed', false)
+        .eq('is_archived', false);
 
       if (!error && data) {
         setNewOrdersCount(data.length);
@@ -472,6 +465,181 @@ export function AdminPage({ onLogout }: AdminPageProps) {
     });
   };
 
+  const renderOrdersList = (ordersToRender: Order[], isHistory: boolean = false) => {
+    if (ordersToRender.length === 0) {
+      return (
+        <div className="glass rounded-2xl p-8 text-center border border-white/5">
+          <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">No orders yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {ordersToRender.map((order) => (
+          <div
+            key={order.id}
+            className={`glass rounded-xl overflow-hidden border ${
+              !order.viewed && !order.is_archived ? 'border-cyan-500/50 animate-pulse' : 'border-white/5'
+            }`}
+          >
+            <div
+              className="p-4 sm:p-6 cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={() => {
+                setExpandedOrder(expandedOrder === order.id ? null : order.id);
+                if (!order.viewed && !isHistory) {
+                  supabase
+                    .from('orders')
+                    .update({ viewed: true })
+                    .eq('id', order.id)
+                    .then(() => {
+                      setOrders((prev) =>
+                        prev.map((o) =>
+                          o.id === order.id ? { ...o, viewed: true } : o
+                        )
+                      );
+                      setNewOrdersCount((prev) => Math.max(0, prev - 1));
+                    });
+                }
+              }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  {!order.viewed && !order.is_archived && (
+                    <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded-full border border-cyan-500/30">
+                      NEW
+                    </span>
+                  )}
+                  <div>
+                    <p className="font-bold text-white flex items-center gap-2">
+                      {order.order_id}
+                      {order.is_archived && (
+                        <span className="px-2 py-0.5 bg-gray-500/20 text-gray-400 text-xs font-medium rounded-md border border-gray-500/30">
+                          Archived
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="text-right">
+                    <p className="font-semibold text-white">₹{order.total_amount}</p>
+                    <p className="text-sm text-gray-500">{order.items.length} item(s)</p>
+                  </div>
+
+                  <div
+                    className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                      order.status === 'Cancelled'
+                        ? 'text-red-400 bg-red-600/30 border border-red-500/30'
+                        : orderStatuses.find((s) => s.value === order.status)?.color || ''
+                    }`}
+                  >
+                    {order.status === 'Cancelled' ? (
+                      <XCircle className="w-4 h-4" />
+                    ) : (
+                      React.createElement(
+                        orderStatuses.find((s) => s.value === order.status)?.icon || Package,
+                        { className: 'w-4 h-4' }
+                      )
+                    )}
+                    {order.status}
+                  </div>
+
+                  {expandedOrder === order.id ? (
+                    <ChevronUp className="w-5 h-5 text-gray-500" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5 text-gray-500" />
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {expandedOrder === order.id && (
+              <div className="border-t border-white/5 p-4 sm:p-6 bg-dark-900/50">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                  <div>
+                    <p className="text-xs text-gray-500">Name</p>
+                    <p className="font-medium text-white">{order.full_name}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Phone</p>
+                    <p className="font-medium text-white">{order.phone_number}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Department</p>
+                    <p className="font-medium text-white">{order.department}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Year</p>
+                    <p className="font-medium text-white">{order.year}</p>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <p className="text-sm font-medium text-gray-400 mb-2">Items</p>
+                  <div className="bg-dark-950 rounded-lg divide-y divide-white/5">
+                    {order.items.map((item, idx) => (
+                      <div key={idx} className="p-3 flex justify-between">
+                        <span className="text-white">{item.product_name}</span>
+                        <span className="text-gray-400">
+                          {item.quantity} × ₹{item.price_per_unit} = ₹
+                          {item.quantity * item.price_per_unit}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {!isHistory && order.status !== 'Cancelled' && (
+                  <div className="mb-6">
+                    <p className="text-sm font-medium text-gray-400 mb-2">Update Status</p>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {orderStatuses.map((status) => (
+                        <button
+                          key={status.value}
+                          onClick={() => handleStatusChange(order.id, status.value)}
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                            order.status === status.value
+                              ? status.color + ' ring-2 ring-cyan-500'
+                              : 'bg-dark-800 hover:bg-dark-700 text-gray-300 border border-white/5'
+                          }`}
+                        >
+                          <status.icon className="w-4 h-4 inline mr-1" />
+                          {status.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {order.status === 'Order Received' && (
+                      <button
+                        onClick={() => handleCancelOrder(order.id)}
+                        className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 border border-red-500/30"
+                      >
+                        <XCircle className="w-4 h-4" />
+                        Cancel Order
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {order.status === 'Cancelled' && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                    <p className="text-red-400 text-sm">
+                      Order cancelled on {order.cancelled_at ? formatDate(order.cancelled_at) : 'N/A'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const stats = {
     totalOrders: orders.length,
     totalSales: orders.filter((o) => o.status !== 'Cancelled').reduce((sum, o) => sum + o.total_amount, 0),
@@ -591,20 +759,30 @@ export function AdminPage({ onLogout }: AdminPageProps) {
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-6">
           <button
-            onClick={() => setActiveTab('orders')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'orders'
-                ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
-                : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
+            onClick={() => setActiveTab('current-orders')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'current-orders'
+              ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
+              : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
               }`}
           >
             <Package className="w-5 h-5" />
-            Orders ({orders.length})
+            Current Orders ({orders.filter(o => !o.is_archived).length})
+          </button>
+          <button
+            onClick={() => setActiveTab('order-history')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'order-history'
+              ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
+              : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
+              }`}
+          >
+            <Clock className="w-5 h-5" />
+            Order History ({orders.length})
           </button>
           <button
             onClick={() => setActiveTab('products')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'products'
-                ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
-                : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
+              ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
+              : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
               }`}
           >
             <ImageIcon className="w-5 h-5" />
@@ -613,8 +791,8 @@ export function AdminPage({ onLogout }: AdminPageProps) {
           <button
             onClick={() => setActiveTab('stats')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'stats'
-                ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
-                : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
+              ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
+              : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
               }`}
           >
             <TrendingUp className="w-5 h-5" />
@@ -623,11 +801,11 @@ export function AdminPage({ onLogout }: AdminPageProps) {
           <button
             onClick={() => setActiveTab('settings')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-colors ${activeTab === 'settings'
-                ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
-                : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
+              ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
+              : 'glass text-gray-300 hover:bg-white/10 border border-white/5'
               }`}
           >
-            <ImageIcon className="w-5 h-5" />
+            <Settings className="w-5 h-5" />
             Settings
           </button>
           <button
@@ -636,13 +814,6 @@ export function AdminPage({ onLogout }: AdminPageProps) {
           >
             <Download className="w-5 h-5" />
             Export CSV
-          </button>
-          <button
-            onClick={() => setShowClearOrdersConfirm(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30 border border-red-500/30 transition-colors"
-          >
-            <Trash2 className="w-5 h-5" />
-            Clear All Orders
           </button>
         </div>
 
@@ -689,167 +860,28 @@ export function AdminPage({ onLogout }: AdminPageProps) {
           </div>
         )}
 
-        {/* Orders Tab */}
-        {activeTab === 'orders' && (
+        {/* Current Orders Tab */}
+        {activeTab === 'current-orders' && (
           <div>
-            {orders.length === 0 ? (
-              <div className="glass rounded-2xl p-8 text-center border border-white/5">
-                <Package className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                <p className="text-gray-400">No orders yet</p>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                {orders.map((order) => (
-                  <div
-                    key={order.id}
-                    className={`glass rounded-xl overflow-hidden border ${!order.viewed ? 'border-cyan-500/50 animate-pulse' : 'border-white/5'
-                      }`}
-                  >
-                    <div
-                      className="p-4 sm:p-6 cursor-pointer hover:bg-white/5 transition-colors"
-                      onClick={() => {
-                        setExpandedOrder(expandedOrder === order.id ? null : order.id);
-                        if (!order.viewed) {
-                          supabase
-                            .from('orders')
-                            .update({ viewed: true })
-                            .eq('id', order.id)
-                            .then(() => {
-                              setOrders((prev) =>
-                                prev.map((o) =>
-                                  o.id === order.id ? { ...o, viewed: true } : o
-                                )
-                              );
-                              setNewOrdersCount((prev) => Math.max(0, prev - 1));
-                            });
-                        }
-                      }}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                          {!order.viewed && (
-                            <span className="px-2 py-1 bg-cyan-500/20 text-cyan-400 text-xs font-medium rounded-full border border-cyan-500/30">
-                              NEW
-                            </span>
-                          )}
-                          <div>
-                            <p className="font-bold text-white">{order.order_id}</p>
-                            <p className="text-sm text-gray-500">{formatDate(order.created_at)}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className="font-semibold text-white">₹{order.total_amount}</p>
-                            <p className="text-sm text-gray-500">{order.items.length} item(s)</p>
-                          </div>
-
-                          <div
-                            className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${order.status === 'Cancelled'
-                                ? 'text-red-400 bg-red-600/30 border border-red-500/30'
-                                : orderStatuses.find((s) => s.value === order.status)?.color || ''
-                              }`}
-                          >
-                            {order.status === 'Cancelled' ? (
-                              <XCircle className="w-4 h-4" />
-                            ) : (
-                              React.createElement(
-                                orderStatuses.find((s) => s.value === order.status)?.icon || Package,
-                                { className: 'w-4 h-4' }
-                              )
-                            )}
-                            {order.status}
-                          </div>
-
-                          {expandedOrder === order.id ? (
-                            <ChevronUp className="w-5 h-5 text-gray-500" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-gray-500" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {expandedOrder === order.id && (
-                      <div className="border-t border-white/5 p-4 sm:p-6 bg-dark-900/50">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-                          <div>
-                            <p className="text-xs text-gray-500">Name</p>
-                            <p className="font-medium text-white">{order.full_name}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Phone</p>
-                            <p className="font-medium text-white">{order.phone_number}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Department</p>
-                            <p className="font-medium text-white">{order.department}</p>
-                          </div>
-                          <div>
-                            <p className="text-xs text-gray-500">Year</p>
-                            <p className="font-medium text-white">{order.year}</p>
-                          </div>
-                        </div>
-
-                        <div className="mb-6">
-                          <p className="text-sm font-medium text-gray-400 mb-2">Items</p>
-                          <div className="bg-dark-950 rounded-lg divide-y divide-white/5">
-                            {order.items.map((item, idx) => (
-                              <div key={idx} className="p-3 flex justify-between">
-                                <span className="text-white">{item.product_name}</span>
-                                <span className="text-gray-400">
-                                  {item.quantity} × ₹{item.price_per_unit} = ₹
-                                  {item.quantity * item.price_per_unit}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {order.status !== 'Cancelled' && (
-                          <div className="mb-6">
-                            <p className="text-sm font-medium text-gray-400 mb-2">Update Status</p>
-                            <div className="flex flex-wrap gap-2 mb-4">
-                              {orderStatuses.map((status) => (
-                                <button
-                                  key={status.value}
-                                  onClick={() => handleStatusChange(order.id, status.value)}
-                                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${order.status === status.value
-                                      ? status.color + ' ring-2 ring-cyan-500'
-                                      : 'bg-dark-800 hover:bg-dark-700 text-gray-300 border border-white/5'
-                                    }`}
-                                >
-                                  <status.icon className="w-4 h-4 inline mr-1" />
-                                  {status.label}
-                                </button>
-                              ))}
-                            </div>
-
-                            {order.status === 'Order Received' && (
-                              <button
-                                onClick={() => handleCancelOrder(order.id)}
-                                className="flex items-center gap-2 px-4 py-2 bg-red-500/20 text-red-400 rounded-lg font-medium hover:bg-red-500/30 border border-red-500/30"
-                              >
-                                <XCircle className="w-4 h-4" />
-                                Cancel Order
-                              </button>
-                            )}
-                          </div>
-                        )}
-
-                        {order.status === 'Cancelled' && (
-                          <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
-                            <p className="text-red-400 text-sm">
-                              Order cancelled on {order.cancelled_at ? formatDate(order.cancelled_at) : 'N/A'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
+            {orders.filter(o => !o.is_archived).length > 0 && (
+              <div className="flex justify-end mb-4">
+                <button
+                  onClick={() => setShowClearOrdersConfirm(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl font-medium hover:bg-red-500/30 border border-red-500/30 transition-colors"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  Clear All Orders
+                </button>
               </div>
             )}
+            {renderOrdersList(orders.filter((o) => !o.is_archived))}
+          </div>
+        )}
+
+        {/* Order History Tab */}
+        {activeTab === 'order-history' && (
+          <div>
+            {renderOrdersList(orders, true)}
           </div>
         )}
 
@@ -1049,10 +1081,10 @@ export function AdminPage({ onLogout }: AdminPageProps) {
                         <td className="py-3 text-white">₹{order.total_amount}</td>
                         <td className="py-3">
                           <span className={`px-2 py-1 rounded-full text-xs ${order.status === 'Cancelled'
-                              ? 'text-red-400 bg-red-500/20'
-                              : order.status === 'Delivered'
-                                ? 'text-green-400 bg-green-500/20'
-                                : 'text-amber-400 bg-amber-500/20'
+                            ? 'text-red-400 bg-red-500/20'
+                            : order.status === 'Delivered'
+                              ? 'text-green-400 bg-green-500/20'
+                              : 'text-amber-400 bg-amber-500/20'
                             }`}>
                             {order.status}
                           </span>

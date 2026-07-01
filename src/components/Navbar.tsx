@@ -1,22 +1,20 @@
 import React from 'react';
-import { Menu, X, Package } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import { Logo } from './Logo';
 import type { Page } from '../types';
 
 interface NavbarProps {
   currentPage: Page;
   onNavigate: (page: Page) => void;
-  newOrdersCount?: number;
 }
 
-export function Navbar({ currentPage, onNavigate, newOrdersCount = 0 }: NavbarProps) {
+export function Navbar({ currentPage, onNavigate }: NavbarProps) {
   const [isOpen, setIsOpen] = React.useState(false);
 
   const navItems: { label: string; page: Page }[] = [
     { label: 'Home', page: 'home' },
     { label: 'Order Now', page: 'student-details' },
     { label: 'Track Order', page: 'track-order' },
-    { label: 'Admin', page: 'admin' },
   ];
 
   const handleNavClick = (page: Page) => {
@@ -41,18 +39,12 @@ export function Navbar({ currentPage, onNavigate, newOrdersCount = 0 }: NavbarPr
               <button
                 key={item.page}
                 onClick={() => handleNavClick(item.page)}
-                className={`relative px-4 py-2 rounded-xl font-medium transition-all duration-200 ${
-                  currentPage === item.page
+                className={`relative px-4 py-2 rounded-xl font-medium transition-all duration-200 ${currentPage === item.page
                     ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
                     : 'text-gray-300 hover:text-white hover:bg-white/10'
-                }`}
+                  }`}
               >
                 {item.label}
-                {item.page === 'admin' && newOrdersCount > 0 && (
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
-                    {newOrdersCount}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -73,19 +65,12 @@ export function Navbar({ currentPage, onNavigate, newOrdersCount = 0 }: NavbarPr
               <button
                 key={item.page}
                 onClick={() => handleNavClick(item.page)}
-                className={`relative w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${
-                  currentPage === item.page
+                className={`relative w-full text-left px-4 py-3 rounded-xl font-medium transition-all duration-200 flex items-center gap-2 ${currentPage === item.page
                     ? 'bg-gradient-to-r from-[#0a298a] to-[#1a55f2] text-white'
                     : 'text-gray-300 hover:text-white hover:bg-white/10'
-                }`}
+                  }`}
               >
-                {item.page === 'admin' && <Package className="w-5 h-5" />}
                 {item.label}
-                {item.page === 'admin' && newOrdersCount > 0 && (
-                  <span className="ml-auto px-2 py-1 bg-red-500 text-white text-xs rounded-full font-bold">
-                    {newOrdersCount} New
-                  </span>
-                )}
               </button>
             ))}
           </div>
