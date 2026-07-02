@@ -7,6 +7,7 @@ CREATE TABLE products (
   meters_per_unit DECIMAL(4,2) NOT NULL,
   image_url TEXT,
   is_active BOOLEAN DEFAULT true,
+  display_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -73,10 +74,10 @@ CREATE POLICY "select_order_items_admin" ON order_items FOR SELECT
   USING (true);
 
 -- Insert default products
-INSERT INTO products (name, description, price, meters_per_unit, image_url) VALUES
-('Shirt Cloth', 'Premium quality shirt cloth for college uniforms', 300, 2.5, NULL),
-('Pant Cloth', 'Durable pant cloth for college uniforms', 350, 1.5, NULL),
-('Coat Cloth', 'High-quality coat/blazer cloth', 250, 1.0, NULL);
+INSERT INTO products (name, description, price, meters_per_unit, image_url, display_order) VALUES
+('Shirt Cloth', 'Premium quality shirt cloth for college uniforms', 300, 2.5, NULL, 1),
+('Pant Cloth', 'Durable pant cloth for college uniforms', 350, 1.5, NULL, 2),
+('Coat Cloth', 'High-quality coat/blazer cloth', 250, 1.0, NULL, 3);
 
 -- Create index for faster order lookups
 CREATE INDEX idx_orders_order_id ON orders(order_id);

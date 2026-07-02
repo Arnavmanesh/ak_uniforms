@@ -24,7 +24,7 @@ export function ProductsPage({ cartItems, onUpdateCart, onNavigate }: ProductsPa
         .from('products')
         .select('*')
         .eq('is_active', true)
-        .order('created_at', { ascending: true });
+        .order('display_order', { ascending: true });
 
       if (fetchError) throw fetchError;
       setProducts(data || []);

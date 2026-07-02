@@ -48,6 +48,12 @@ export function OrderReviewPage({ customerDetails, cartItems, onNavigate, onConf
       };
     });
 
+  orderItems.sort((a, b) => {
+    const prodA = products.find((p) => p.id === a.product_id);
+    const prodB = products.find((p) => p.id === b.product_id);
+    return (prodA?.display_order || 0) - (prodB?.display_order || 0);
+  });
+
   const getTotalAmount = (): number => {
     return orderItems.reduce((total, item) => total + item.price_per_unit * item.quantity, 0);
   };

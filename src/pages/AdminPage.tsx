@@ -218,7 +218,7 @@ export function AdminPage({ onLogout }: AdminPageProps) {
       const productsResp = await supabase
         .from('products')
         .select('*')
-        .order('created_at', { ascending: true });
+        .order('display_order', { ascending: true });
 
       if (ordersResp.error) throw ordersResp.error;
       if (productsResp.error) throw productsResp.error;
@@ -480,9 +480,8 @@ export function AdminPage({ onLogout }: AdminPageProps) {
         {ordersToRender.map((order) => (
           <div
             key={order.id}
-            className={`glass rounded-xl overflow-hidden border ${
-              !order.viewed && !order.is_archived ? 'border-cyan-500/50 animate-pulse' : 'border-white/5'
-            }`}
+            className={`glass rounded-xl overflow-hidden border ${!order.viewed && !order.is_archived ? 'border-cyan-500/50 animate-pulse' : 'border-white/5'
+              }`}
           >
             <div
               className="p-4 sm:p-6 cursor-pointer hover:bg-white/5 transition-colors"
@@ -531,11 +530,10 @@ export function AdminPage({ onLogout }: AdminPageProps) {
                   </div>
 
                   <div
-                    className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
-                      order.status === 'Cancelled'
+                    className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${order.status === 'Cancelled'
                         ? 'text-red-400 bg-red-600/30 border border-red-500/30'
                         : orderStatuses.find((s) => s.value === order.status)?.color || ''
-                    }`}
+                      }`}
                   >
                     {order.status === 'Cancelled' ? (
                       <XCircle className="w-4 h-4" />
@@ -601,11 +599,10 @@ export function AdminPage({ onLogout }: AdminPageProps) {
                         <button
                           key={status.value}
                           onClick={() => handleStatusChange(order.id, status.value)}
-                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            order.status === status.value
+                          className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${order.status === status.value
                               ? status.color + ' ring-2 ring-cyan-500'
                               : 'bg-dark-800 hover:bg-dark-700 text-gray-300 border border-white/5'
-                          }`}
+                            }`}
                         >
                           <status.icon className="w-4 h-4 inline mr-1" />
                           {status.label}
